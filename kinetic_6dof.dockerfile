@@ -9,32 +9,42 @@
 # 5. C++11 활성화
 # 6. ROS2 관련 의존성(ros2topic, ament_lint_common) 무시
 ################################################################################
-
-FROM osrf/ros:kinetic-desktop-full
+FROM nvidia/opengl:base-ubuntu18.04
 
 # 비대화식 설치 모드 (필요하다면 주석 해제)
-# ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
+RUN apt update && apt install -y sudo chrony ntpdate && useradd -m -s /bin/bash dockeruser && \
+    echo "dockeruser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER dockeruser
+
+RUN sudo ntpdate -q ntp.ubuntu.com
 
 ################################################################################
 # 1) RealSense 설정: apt key 등록 + 소스 추가
 ################################################################################
-RUN apt update && sudo apt install -y software-properties-common && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE \
-    || apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE \
-    && add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" -u
+RUN sudo apt update && sudo apt upgrade -y && sudo apt install -y curl apt-transport-https software-properties-common
+RUN sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 
-RUN apt update && apt install -y curl && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+RUN sudo apt-get update && sudo apt-get upgrade -y
 
-RUN echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" \
-    | tee /etc/apt/sources.list.d/librealsense.list
+RUN sudo mkdir -p /etc/apt/keyrings
+RUN curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null
 
+RUN echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | \
+    sudo tee /etc/apt/sources.list.d/librealsense.list
+RUN sudo apt-get update
+
+USER root
 ################################################################################
 # 2) ROS 및 빌드에 필요한 패키지 설치
 ################################################################################
 RUN apt update && apt upgrade -y && apt-get install -y \
+    ros-kinetic-desktop-full          \
+    ros-kinetic-rqt*                  \
+    python-rosinstall                 \
     ros-kinetic-ros-controllers       \
     ros-kinetic-gazebo*               \
     ros-kinetic-moveit*               \
@@ -52,12 +62,12 @@ RUN apt update && apt upgrade -y && apt-get install -y \
     librealsense2-dkms                \
     librealsense2-dbg                 \
     ros-kinetic-rgbd-launch           \
+    systemd-coredump                  \
     git                               \
     vim                               \
     cmake                             \
     build-essential                   \
     wget                              \
-    sudo                              \
     libgl1-mesa-glx                   \
     libgl1-mesa-dri                   \
     mesa-utils                        \
@@ -71,14 +81,6 @@ RUN apt update && apt upgrade -y && apt-get install -y \
 RUN rm -rf /etc/ros/rosdep/sources.list.d/20-default.list
 RUN /bin/bash -c 'source /opt/ros/kinetic/setup.bash && rosdep init && rosdep update'
 
-################################################################################
-# 4) 비루트 사용자 추가 및 sudo 권한 부여
-################################################################################
-RUN useradd -m dockeruser && echo "dockeruser:dockeruser" | chpasswd && adduser dockeruser sudo
-
-################################################################################
-# 5) dockeruser로 전환, 작업 디렉토리 설정
-################################################################################
 USER dockeruser
 WORKDIR /home/dockeruser
 
@@ -168,6 +170,8 @@ RUN /bin/bash -c 'source /opt/ros/kinetic/setup.bash && \
     catkin_make -j1 -DCMAKE_CXX_STANDARD=11'
 
 ENV CXXFLAGS="-std=c++11"
+
+USER dockeruser
 
 ################################################################################
 # 11) 환경 설정

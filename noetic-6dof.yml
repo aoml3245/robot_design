@@ -1,8 +1,8 @@
 services:
-  kinetic:
+  noetic:
     build:
       context: .
-      dockerfile: kinetic_6dof.dockerfile
+      dockerfile: noetic_6dof.dockerfile
     network_mode: "host"
     tty: true
     privileged: true
