@@ -10,7 +10,20 @@ RUN apt update && apt-get install -y ros-noetic-ros-controllers ros-noetic-gazeb
     apt install -y ros-noetic-robotis-manipulator git \
     vim \
     git \
-    build-essential \
+    build-essential \ 
+    ros-noetic-desktop-full          \
+    ros-noetic-rqt*                  \
+    ros-noetic-ros-controllers       \
+    ros-noetic-gazebo*               \
+    ros-noetic-moveit*               \
+    ros-noetic-industrial-core       \
+    ros-noetic-dynamixel-sdk         \
+    ros-noetic-dynamixel-workbench*  \
+    ros-noetic-robotis-manipulator   \
+    ros-noetic-image-proc            \
+    ros-noetic-realsense2-camera     \
+    ros-noetic-realsense2-description\
+    ros-noetic-rgbd-launch           \
     wget \
     sudo \
     libgl1-mesa-glx \
@@ -31,35 +44,15 @@ RUN mkdir -p /home/dockeruser/colcon_ws/src && chmod 777 /home/dockeruser/colcon
 
 # 환경 설정
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-RUN echo "source /home/dockeruser/colcon_ws/devel/setup.bash" >> ~/.bashrc
+RUN RUN echo "source /home/dockeruser/colcon_ws/devel/setup.bash" >> ~/.bashrc
 
 
 
-RUN mkdir -p /home/dockeruser/colcon_ws/src && cd /home/dockeruser/colcon_ws/src && \
-    git clone -b noetic https://github.com/ROBOTIS-GIT/open_manipulator.git && \
-    git clone -b noetic https://github.com/ROBOTIS-GIT/open_manipulator_msgs.git && \
-    git clone -b noetic https://github.com/ROBOTIS-GIT/open_manipulator_simulations.git && \
-    git clone -b noetic https://github.com/ROBOTIS-GIT/open_manipulator_dependencies.git && \
-    git clone https://github.com/ROBOTIS-GIT/open_manipulator_friends.git 
 
+RUN mkdir -p /home/dockeruser/colcon_ws && cd /home/dockeruser/colcon_ws && \
+    git clone https://github.com/aoml3245/open_manipulator_6dof_noetic.git
 
-
-COPY automate_migration.py /workspace/automate_migration.py
-
-RUN sudo chmod +x /workspace/automate_migration.py
-
-RUN /workspace/automate_migration.py /home/dockeruser/colcon_ws/src
-
-# 소스 파일에 자동으로 <sys/wait.h> 추가 (파일 상단에 삽입)
-RUN sed -i '1i#include <sys/wait.h>' /home/dockeruser/colcon_ws/src/open_manipulator_friends/open_manipulator_6dof_teleop/src/open_manipulator_6dof_teleop_joystick.cpp && \
-    sed -i '1i#include <sys/wait.h>' /home/dockeruser/colcon_ws/src/open_manipulator_friends/open_manipulator_6dof_teleop/src/open_manipulator_6dof_teleop_keyboard.cpp
-
-# wait()를 wait(nullptr);로 대체 (모든 occurence)
-RUN sed -i 's/wait();/wait(nullptr);/g' /home/dockeruser/colcon_ws/src/open_manipulator_friends/open_manipulator_6dof_teleop/src/open_manipulator_6dof_teleop_joystick.cpp && \
-    sed -i 's/wait();/wait(nullptr);/g' /home/dockeruser/colcon_ws/src/open_manipulator_friends/open_manipulator_6dof_teleop/src/open_manipulator_6dof_teleop_keyboard.cpp
-
-
-RUN /bin/bash -c 'source /opt/ros/noetic/setup.bash && cd /home/dockeruser/colcon_ws && catkin_make'
+RUN /bin/bash -c 'source /opt/ros/noetic/setup.bash && cd /home/dockeruser/colcon_ws && catkin_make -j1 -DCMAKE_CXX_STANDARD=14'
 
 
 
